@@ -33,8 +33,12 @@ Este repositorio contiene la solución al **Ejercicio 5** de la práctica de XAI
 
 - **EDM33**  
   `edmetsinf33@gmail.com`  
+<<<<<<< HEAD
   Universidad Politécnica de Valencia (UPV)
 
 ---
 
 
+=======
+  Universidad Politécnica de Valencia (UPV)
+>>>>>>> b5f2591 (Añadido README.md con descripción del proyecto)
