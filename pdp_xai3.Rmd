@@ -1,0 +1,104 @@
+---
+title: "XAI3 - PDP Analysis Report"
+author: "EDM33"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(randomForest)
+library(pdp)
+library(ggplot2)
+library(dplyr)
+```
+
+# Introducción
+
+Este documento presenta el análisis con Partial Dependence Plots (PDP) como parte del ejercicio XAI3. Se utilizan dos conjuntos de datos: `day.csv` (bicicletas) y `kc_house_data.csv` (precios de casas).
+
+# 1. PDP Unidimensional - Bicicletas
+
+```{r load-day-data}
+day <- read.csv("day.csv")
+day$days_since_2011 <- as.numeric(as.Date(day$dteday) - as.Date("2011-01-01"))
+```
+
+```{r model-bike}
+model_bike <- randomForest(cnt ~ days_since_2011 + temp + hum + windspeed, data = day)
+```
+
+```{r pdp-bike-1d, fig.width=6, fig.height=4}
+features_1d <- c("days_since_2011", "temp", "hum", "windspeed")
+for (f in features_1d) {
+  pd <- partial(model_bike, pred.var = f, grid.resolution = 20)
+  print(autoplot(pd) + ggtitle(paste("PDP para", f)))
+}
+```
+1. days_since_2011
+The partial dependence plot for days_since_2011 shows a generally increasing trend, indicating that the number of bike rentals (cnt) has increased over time. This suggests a growing popularity of the service or an expanding user base as time progresses.
+
+ 2. temp
+The PDP for temp reveals a strong positive relationship up to approximately 0.65 (normalized temperature). Beyond this point, the effect plateaus or slightly decreases, indicating that moderate temperatures encourage rentals, while very high temperatures might slightly reduce usage.
+
+3. hum
+The plot for hum (humidity) shows a fairly flat response at low and mid humidity levels, but a steep decline as humidity approaches 1. This suggests that high humidity negatively impacts bike rental activity, likely due to discomfort or rain-related conditions.
+
+4. windspeed
+The PDP for windspeed displays a clear negative relationship: as windspeed increases, the predicted number of rentals (cnt) decreases. This reflects the natural disincentive for cycling in windy conditions, likely due to reduced comfort and safety.
+
+
+# 2. PDP Bidimensional - Bicicletas
+
+```{r pdp-bike-2d, fig.width=6, fig.height=4}
+set.seed(123)
+sample_day <- day %>% sample_n(300)
+model_bike2 <- randomForest(cnt ~ temp + hum, data = sample_day)
+pdp_2d <- partial(model_bike2, pred.var = c("temp", "hum"), grid.resolution = 20)
+
+ggplot() +
+  geom_tile(data = pdp_2d, aes(x = temp, y = hum, fill = yhat), width = 0.01, height = 0.01) +
+  geom_density_2d(data = sample_day, aes(x = temp, y = hum), color = "white", alpha = 0.5) +
+  labs(title = "2D PDP: temp vs hum with density", fill = "Predicted count")
+
+
+```
+The 2D Partial Dependence Plot shows that the highest predicted bike rental counts occur when the temperature is moderate (around 0.5–0.7) and the humidity is also moderate (approximately 0.3–0.6). Areas with very high humidity or low temperatures correspond to lower predicted rental levels. The density contours overlaid on the PDP indicate that the model is making predictions mostly in regions where there is sufficient training data. This increases the reliability of the observed trends.
+
+
+# 3. PDP - Precios de Viviendas
+We trained a random forest model on a 500-sample subset of the kc_house_data.csv dataset, using the following predictors: bedrooms, bathrooms, sqft_living, sqft_lot, floors, and yr_built. We then generated Partial Dependence Plots (PDPs) for the features bedrooms, bathrooms, sqft_living, and floors to analyze their influence on predicted house price.
+
+
+
+```{r pdp-houses, fig.width=6, fig.height=4}
+house <- read.csv("kc_house_data.csv")
+set.seed(42)
+sample_house <- house %>% sample_n(500)
+model_house <- randomForest(price ~ bedrooms + bathrooms + sqft_living + sqft_lot + floors + yr_built, data = sample_house)
+features_house <- c("bedrooms", "bathrooms", "sqft_living", "floors")
+
+for (f in features_house) {
+  pd <- partial(model_house, pred.var = f, grid.resolution = 20)
+  print(autoplot(pd) + ggtitle(paste("PDP para", f)))
+}
+```
+1.Bedrooms
+The PDP shows that the predicted price decreases slightly as the number of bedrooms increases from 2 to 6. This may be surprising, but it suggests that homes with fewer bedrooms could be in more expensive locations or be more luxurious. After 6 bedrooms, the predicted price stabilizes. Overall, the influence of bedrooms appears weak or possibly non-linear.
+
+2.Bathrooms
+The number of bathrooms has a strong positive impact on the predicted price. The curve is flat at low values but increases sharply from 3 to 5 bathrooms. This shows that the model learns that houses with more bathrooms are typically higher priced, especially beyond 3 bathrooms.
+
+3.sqft_living
+This variable shows the strongest positive linear trend. The predicted price increases significantly with the living area until around 4000 sqft, after which the trend flattens. This indicates diminishing returns: larger homes are more expensive, but above a certain size, the price increase slows.
+
+4.Floors
+The effect of the number of floors is less consistent. The predicted price fluctuates for homes with 1.0 to 2.5 floors, but increases more clearly around 2.5–3.0 floors. This suggests that, although the number of floors has some influence, it may interact with other features to affect price meaningfully.
+
+
+
+# General Conclusions
+Through the application of Partial Dependence Plots (PDP), we gained valuable insights into how individual features influence the predictions made by machine learning models. In the case of bike rental prediction, we observed that weather-related features such as temperature and humidity significantly affect rental behavior, with moderate values leading to higher demand. In the house price prediction task, physical attributes like sqft_living and bathrooms showed strong positive relationships with price, while variables like bedrooms and floors had weaker or more complex effects.
+
+PDPs provided an interpretable and intuitive way to visualize feature impact, even in black-box models like Random Forests. This demonstrates the power of explainable AI techniques to enhance transparency and trust in predictive systems, especially in decision-making scenarios such as urban planning or real estate valuation.
+
+In summary, PDPs help bridge the gap between predictive performance and model interpretability, making them an essential tool for responsible and insightful data analysis.
